@@ -18,7 +18,7 @@ from bayes_opt import UtilityFunction
 class OnlineBayesian(BayesianOptimization):
     def __init__(self, obj_f, pbounds,
                 kind='ucb', kappa=2.567, kappa_decay=1, xi=0.0, kappa_decay_delay=0,
-                random_steps=5):
+                random_steps=5, max_iter=1500):
         super().__init__(obj_f, pbounds)
         self.f = obj_f
         self.utility = UtilityFunction(kind=kind,
@@ -29,13 +29,16 @@ class OnlineBayesian(BayesianOptimization):
         self._isRunning = True
         self._nstep = 0
         self._random_steps = max(random_steps, 2)
+        self.max_iter = max_iter
         
     def suggest(self):
         self._nstep += 1
-        if self._nstep < self._random_steps:
+        if self._nstep <= self._random_steps:
             return self._space.array_to_params(self._space.random_sample())
-        else:
+        elif self._nstep < self.max_iter:
             return super().suggest(self.utility)
+        else:
+            return None
     
     def register(self, X, Y):
         super().register(
@@ -56,10 +59,10 @@ from threading import Thread
 import numpy as np
 from algo.rcds import RCDS
 class OnlineRCDS(RCDS):
-    def __init__(self, obj_f, inp_bounds, noise_level=0.1, step = 0.01):
+    def __init__(self, obj_f, inp_bounds, noise_level=0.1, step = 0.01, max_iter=1500):
         Nvar = len(inp_bounds)
         g_vrange = np.array(list(inp_bounds.values())) # require that inp_bounds is ordered(py>=3.6)
-        super().__init__(obj_f, noise_level, Nvar, g_vrange)
+        super().__init__(obj_f, noise_level, Nvar, g_vrange, max_iter)
         self.step = step
         self.pb = inp_bounds # paramater bounds
         self.Xsuggestion = Queue(1)
@@ -110,8 +113,8 @@ class OnlineRCDS(RCDS):
         
         if any(p<self.g_vrange[:,0]) or any(p>self.g_vrange[:,1]):
         # if min(x)<0 or max(x)>1:
-            self.Xsuggestion.put(None) # todo : better suggestion output for invalid x
-            self.Yobj.get()
+            # self.Xsuggestion.put(None) # jump over invalid input
+            # self.Yobj.get()
             obj = float('NaN')
         else:
             self.Xsuggestion.put({key:val for key,val in zip(self.pb.keys(), p)})
@@ -121,7 +124,7 @@ class OnlineRCDS(RCDS):
         return obj
     
     
-from algo.extrumseeking import ES_min
+from algo.esmin import ES_min
 class OnlineES(ES_min):
     def __init__(self, obj_f, inp_bounds, norm_coef=0.05,
                  kES=0.5, alphaES=1.0, w0=500.0, max_iter = 1500):

@@ -11,17 +11,16 @@ import numpy as np
 #that may result from the use of the algorithm or the code.
 
 class RCDS:
-    def __init__(self, func, g_noise=0.1, Nvar=6, g_vrange=None, g_cnt=0, g_data=None, Imat=None):
+    def __init__(self, func, g_noise=0.1, Nvar=6, g_vrange=None, max_iter=1500):
         self.g_noise = g_noise # expected noise level for bracketmin, sigma_f in the original paper
-        self.g_cnt = g_cnt # number of function evaluation
+        self.g_cnt = 0 # number of function evaluation
         self.Nvar = Nvar # number of input var
         self.g_vrange = g_vrange # input variable range
         self.objfunc = func
         self.Dir = np.identity(Nvar)
-        self.g_data = g_data # not used
-        self.Imat = Imat # not used
+        self.max_iter = max_iter
 
-    def powellmain(self,x0,step,tol=1.0E-5,maxIt=100,maxEval=1500):
+    def powellmain(self,x0,step,tol=1.0E-5,maxIt=100):
         '''RCDS main self.func_objtion, implementing Powell's direction set update method
         Created by X. Huang, 10/5/2016
         Input:
@@ -35,6 +34,7 @@ class RCDS:
                         nf: integer, number of evaluations
         '''
         self.g_cnt = 0
+        maxEval = self.max_iter
         assert self.Nvar == len(x0)
         f0 = self.func_obj(x0)
         nf = 1
@@ -112,10 +112,10 @@ class RCDS:
 
             if 2.0*abs(f0-fm) < tol*(abs(f0)+abs(fm)) and tol>0:
                 print("terminated: f0=%4.2e\t, fm=%4.2e, f0-fm=%4.2e\n" %(f0, fm, f0-fm))
-                break;
+                break
 
-            f0=fm;
-            x0=xm;
+            f0=fm
+            x0=xm
 
         return xm, fm, nf
 
@@ -249,7 +249,6 @@ class RCDS:
             print('Error: bracket upper bound equal to or lower than lower bound')
             return x0, f0, nf
 
-        V = len(x0)
         if len(x0)!=len(dv):
             print('Error: x0 and dv dimension do not match.')
             return x0, f0, nf
