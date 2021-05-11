@@ -17,9 +17,9 @@ from bayes_opt import BayesianOptimization
 from bayes_opt import UtilityFunction
 class OnlineBayesian(BayesianOptimization):
     def __init__(self, obj_f, pbounds,
-                kind='ucb', kappa=2.567, kappa_decay=1, xi=0.0, kappa_decay_delay=0,
-                random_steps=5, max_iter=1500):
-        super().__init__(obj_f, pbounds)
+                kind='ucb', kappa=2.5, kappa_decay=1, xi=0.0, kappa_decay_delay=0,
+                random_steps=5, max_iter = 1500, **kw):
+        super().__init__(obj_f, pbounds,**kw)
         self.f = obj_f
         self.utility = UtilityFunction(kind=kind,
                                     kappa=kappa,
@@ -28,16 +28,18 @@ class OnlineBayesian(BayesianOptimization):
                                     kappa_decay_delay=kappa_decay_delay)
         self._isRunning = True
         self._nstep = 0
+        self._maxstep = max_iter
         self._random_steps = max(random_steps, 2)
-        self.max_iter = max_iter
         
     def suggest(self):
         self._nstep += 1
+        self.utility.update_params()
         if self._nstep <= self._random_steps:
             return self._space.array_to_params(self._space.random_sample())
-        elif self._nstep < self.max_iter:
+        elif self._nstep < self._maxstep:
             return super().suggest(self.utility)
         else:
+            self._isRunning = False
             return None
     
     def register(self, X, Y):
@@ -52,6 +54,22 @@ class OnlineBayesian(BayesianOptimization):
         
     def destroy(self):
         self._isRunning = False
+        
+
+from bayes_opt import SequentialDomainReductionTransformer
+class OnlineSDRBO(OnlineBayesian):
+    def __init__(self, obj_f, pbounds,
+                 kind='ucb', kappa=2.5, kappa_decay=1, xi=0.0, kappa_decay_delay=0,
+                 gamma_osc=0.7, gamma_pan=1.0, eta=0.9,
+                 random_steps=5, max_iter = 1500):
+        bounds_transformer = SequentialDomainReductionTransformer(gamma_osc, gamma_pan, eta)
+        super().__init__(obj_f, pbounds, kind, kappa, kappa_decay, xi, kappa_decay_delay,
+                         random_steps, max_iter,
+                         bounds_transformer=bounds_transformer)
+        
+    def register(self, X, Y):
+        super().register(X, Y)
+        self.set_bounds(self._bounds_transformer.transform(self._space))
         
 
 from queue import Queue

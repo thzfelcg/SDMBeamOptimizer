@@ -50,6 +50,7 @@ class Optimizer:
             else:
                 for pv in self.i:
                     pv.async_put(X_suggestion[pv.pvname])
+            self.s.async_put(True) # give feedback to signal generator
        
     def destroy(self):
         self.s.remove_callback(self.sig_cbk)
